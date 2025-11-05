@@ -1,4 +1,4 @@
-<img src="https://travis-ci.org/MarkHedleyJones/dmenu-extended.svg?branch=master" alt="build:passed">
+<img src="https://github.com/MarkHedleyJones/dmenu-extended/actions/workflows/ci.yml/badge.svg" alt="CI">
 
 # dmenu-extended
 
@@ -21,7 +21,7 @@ An extension to the original [dmenu](http://tools.suckless.org/dmenu/) allowing 
 ## Installation
 
 ### Dependencies
-* **Python** - version 3.6 or higher
+* **Python** - version 3.7 or higher
 * **dmenu** - version 4.5 or later
 
 Quick dependency install:
