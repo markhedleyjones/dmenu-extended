@@ -27,3 +27,21 @@ dependencies = ["setuptools>=61.0"]
 [project.urls]
 "Homepage" = "https://github.com/MarkHedleyJones/dmenu-extended"
 "Bug Tracker" = "https://github.com/MarkHedleyJones/dmenu-extended/issues"
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+branch = "main"
+upload_to_vcs_release = true
+build_command = "pip install build && python -m build"
+major_on_zero = true
+tag_format = "v{version}"
+
+[tool.semantic_release.changelog]
+template_dir = "templates"
+changelog_file = "CHANGELOG.md"
+exclude_commit_patterns = []
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = ["build", "chore", "ci", "docs", "feat", "fix", "perf", "style", "refactor", "test"]
+minor_tags = ["feat"]
+patch_tags = ["fix", "perf"]
