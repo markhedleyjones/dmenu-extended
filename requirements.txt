@@ -2,3 +2,4 @@ build
 flake8-black
 mock
 pytest
+python-semantic-release>=8.0.0
