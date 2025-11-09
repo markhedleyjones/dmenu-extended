@@ -34,7 +34,8 @@ branch = "main"
 upload_to_vcs_release = true
 build_command = "pip install build && python -m build"
 major_on_zero = true
-tag_format = "v{version}"
+tag_format = "{version}"
+allow_detached_head = true
 
 [tool.semantic_release.changelog]
 template_dir = "templates"
