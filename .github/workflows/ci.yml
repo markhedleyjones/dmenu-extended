@@ -39,6 +39,7 @@ jobs:
         run: ./test.sh --system
 
   release:
+    if: github.event_name == 'push'
     needs: [lint, system-test]
     runs-on: ubuntu-latest
     concurrency: release
