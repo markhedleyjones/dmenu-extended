@@ -10,7 +10,7 @@ authors = [
 ]
 description = "A wrapper for dmenu that implements plugins and fast file/folder searching"
 readme = "README.md"
-license = { file="LICENSE" }
+license = { text="MIT" }
 requires-python = ">=3.7"
 classifiers = [
     "Programming Language :: Python :: 3",
