@@ -1,0 +1,4 @@
+# Ruff configuration for dmenu-extended
+# Using Ruff's defaults:
+# - line-length = 88 (Black-compatible)
+# - Modern Python linting rules
