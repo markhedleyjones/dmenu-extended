@@ -1,0 +1,7 @@
+# Development dependencies
+ruff  # Python formatter and linter
+# Note: shfmt is a Go binary - install with your package manager:
+#   Arch:   sudo pacman -S shfmt
+#   Fedora: sudo dnf install shfmt
+#   Ubuntu: sudo apt install shfmt
+#   Snap:   sudo snap install shfmt
