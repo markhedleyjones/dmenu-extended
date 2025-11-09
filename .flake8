@@ -1,8 +1,0 @@
-[flake8]
-# For compatibility with Black
-max-line-length = 88
-# E402 module level import not at top of file
-# E722 do not use bare 'except'
-# F401 '.main.*' imported but unused
-# F403 'from .main import *' used; unable to detect undefined names
-extend-ignore = E203, E722, E402, F401, F403
