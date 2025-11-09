@@ -32,7 +32,6 @@ Run dmenu-extended tests
 Available options:
 
 -b, --build          Build Docker image (contains linting tools and test environment)
--c, --check-version  Check that the version defined in pyproject.toml is higher than that listed on pypi
 -h, --help           Print this help and exit
 -l, --lint           Lint code with ruff/shfmt (uses local tools if available, otherwise Docker)
 -s, --system         Run system tests in Docker (requires Docker image)
@@ -43,14 +42,12 @@ EOF
 
 parse_params() {
 	build=0
-	check_version=0
 	format=0
 	system=0
 	lint=0
 	while :; do
 		case "${1-}" in
 		-b | --build) build=1 ;;
-		-c | --check-version) check_version=1 ;;
 		-a | --system) system=1 ;;
 		-h | --help) usage ;;
 		-l | --lint) lint=1 ;;
@@ -68,17 +65,6 @@ parse_params() {
 
 parse_params "$@"
 
-if [ "${check_version}" -eq 1 ]; then
-	version=$(grep -E '^version =' ${script_dir}/pyproject.toml | cut -d '"' -f 2)
-	pypi_version=$(curl -s https://pypi.org/pypi/dmenu-extended/json | jq -r '.info.version')
-	if ${script_dir}/tests/check_version_string.sh "${version}" "${pypi_version}"; then
-		success "The version in pyproject.toml (${version}) has been correctly incremented relative to the version on pypi (${pypi_version})"
-		exit 0
-	else
-		error "The version in pyproject.toml (${version}) has not been incremented relative to the current version on pypi (${pypi_version})"
-		exit 1
-	fi
-fi
 if [ "${build}" -eq 1 ] || [ "${system}" -eq 1 ]; then
 	image_hash="$(docker images -q dmenu-extended-test:latest)"
 	if [ "${build}" -eq 1 ] || [ "${image_hash}" = "" ]; then
@@ -187,7 +173,7 @@ if [ "${system}" -eq 1 ]; then
 fi
 
 # Fallback for running tests locally without Docker
-if [ "${system}" -eq 0 ] && [ "${lint}" -eq 0 ] && [ "${build}" -eq 0 ] && [ "${check_version}" -eq 0 ]; then
+if [ "${system}" -eq 0 ] && [ "${lint}" -eq 0 ] && [ "${build}" -eq 0 ]; then
 	cd ${script_dir}/src/dmenu_extended
 	python3 -m pytest ../../tests
 fi

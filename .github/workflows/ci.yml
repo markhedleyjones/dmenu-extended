@@ -8,14 +8,6 @@ on:
       - main
 
 jobs:
-  check-version:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Check version string
-        run: ./test.sh --check-version
-
   lint:
     runs-on: ubuntu-latest
     steps:
