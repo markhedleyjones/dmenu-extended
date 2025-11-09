@@ -1,8 +1,9 @@
 #! /usr/bin/env python3
 
-import mock
 import sys
 from os import path
+
+import mock
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 import dmenu_extended as d
@@ -70,9 +71,12 @@ def test_command_to_list():
     ]
     assert menu.command_to_list(
         'xdg-open "/home/user/1983 - BVerfG - Volkszahlungsurteil - 1983.pdf"'
-    ) == ["xdg-open", "/home/user/1983 - BVerfG - Volkszahlungsurteil - 1983.pdf"]
+    ) == [
+        "xdg-open",
+        "/home/user/1983 - BVerfG - Volkszahlungsurteil - 1983.pdf",
+    ]
 
 
 def test_scan_binaries_file_in_system_path():
     with mock.patch.object(menu, "system_path", new=lambda: ["/bin", "/bin/cp"]):
-        assert type(menu.scan_binaries()) == list
+        assert isinstance(menu.scan_binaries(), list)

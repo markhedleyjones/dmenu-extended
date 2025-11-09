@@ -4,12 +4,13 @@ import importlib
 import json
 import operator
 import os
-import pkg_resources
 import signal
 import subprocess
 import sys
 import time
 import urllib.request
+
+import pkg_resources
 
 Help = """
 Dmenu Extended command line options
@@ -264,8 +265,7 @@ def setup_user_files():
         f.write("import os\n")
         f.write("import glob\n")
         f.write(
-            "__all__ = [ os.path.basename(f)[:-3] for f in"
-            ' glob.glob(os.path.dirname(__file__)+"/*.py")]'
+            '__all__ = [ os.path.basename(f)[:-3] for f in glob.glob(os.path.dirname(__file__)+"/*.py")]'
         )
 
 
@@ -279,7 +279,7 @@ else:
     setup_user_files()
     sys.path.append(path_base)
 
-import plugins
+import plugins  # noqa: E402
 
 
 def load_plugins(debug=False):
@@ -367,7 +367,6 @@ def frequent_commands_retrieve(number):
 
 
 class dmenu(object):
-
     plugins_loaded = False
     prefs = False
     debug = False
@@ -451,7 +450,7 @@ class dmenu(object):
             with open(path, "r") as f:
                 try:
                     return json.load(f)
-                except:
+                except json.JSONDecodeError:
                     if self.debug:
                         print("Error parsing prefs from json file " + path)
                     self.prefs = default_prefs
@@ -511,13 +510,8 @@ class dmenu(object):
 
     def message_open(self, message):
         self.load_preferences()
-        # Expand environment variables in each argument
-        expanded_args = [
-            os.path.expandvars(arg) for arg in self.prefs["menu_arguments"]
-        ]
-
         self.message = subprocess.Popen(
-            [self.prefs["menu"]] + expanded_args,
+            [self.prefs["menu"]] + self.prefs["menu_arguments"],
             stdin=subprocess.PIPE,
             preexec_fn=os.setsid,
             text=True,
@@ -552,12 +546,8 @@ class dmenu(object):
                 print("Menu bypassed with launch argument: " + out)
             return out
         else:
-            # Expand environment variables in each argument
-            expanded_args = [
-                os.path.expandvars(arg) for arg in self.prefs["menu_arguments"]
-            ]
             p = subprocess.Popen(
-                [self.prefs["menu"]] + expanded_args + ["-p", prompt],
+                [self.prefs["menu"]] + self.prefs["menu_arguments"] + ["-p", prompt],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 text=True,
@@ -746,7 +736,7 @@ class dmenu(object):
         self.preCommand to the given command, necessary for sudo calls.
         """
         if self.debug:
-            print("Executing:"),
+            (print("Executing:"),)
             print(command)
 
         command = self.command_to_list(command)
@@ -768,8 +758,7 @@ class dmenu(object):
     def cache_regenerate(self, message=True):
         if message:
             self.message_open(
-                "building cache...\nThis may take a while (press enter to run in"
-                " background)."
+                "building cache...\nThis may take a while (press enter to run in background)."
             )
         cache = self.build_cache()
         if message:
@@ -786,8 +775,6 @@ class dmenu(object):
                     f.write(items)
             return 1
         except UnicodeEncodeError:
-            import string
-
             tmp = []
             foundError = False
             if self.debug:
@@ -827,7 +814,7 @@ class dmenu(object):
                 print("Opening cache at " + path)
             with open(path, "r") as f:
                 return f.read()
-        except:
+        except (OSError, IOError):
             return False
 
     def cache_load(self, exitOnFail=False):
@@ -1159,7 +1146,7 @@ class dmenu(object):
         try:
             if "follow_symlinks" in self.prefs:
                 follow_symlinks = self.prefs["follow_symlinks"]
-        except:
+        except (KeyError, TypeError):
             pass
 
         if self.debug:
@@ -1216,8 +1203,7 @@ class dmenu(object):
                     else:
                         if self.debug:
                             print(
-                                "There are aliased items in the configuration with no"
-                                " command."
+                                "There are aliased items in the configuration with no command."
                             )
                 else:
                     include_items.append(item)
@@ -1274,7 +1260,6 @@ class dmenu(object):
 
 
 class extension(dmenu):
-
     title = "Settings"
     is_submenu = True
 
@@ -1427,7 +1412,7 @@ class extension(dmenu):
                                 found = True
                                 try:
                                     exec("import " + depend)
-                                except:
+                                except ImportError:
                                     found = False
                                     fail = True
                                 if found is False:
@@ -1451,8 +1436,7 @@ class extension(dmenu):
                         self.message_close()
                         self.menu(
                             [
-                                "Plugin has missing dependencies and therefore was not"
-                                " installed"
+                                "Plugin has missing dependencies and therefore was not installed"
                             ]
                         )
                     else:
@@ -1475,8 +1459,7 @@ class extension(dmenu):
             else:
                 self.menu(
                     [
-                        "The requested plugin has unmet dependencies, please update"
-                        " your system and try again"
+                        "The requested plugin has unmet dependencies, please update your system and try again"
                     ]
                 )
 
@@ -2037,7 +2020,6 @@ def run(*args):
                         cache_scanned = cache_scanned.split("\n")
 
                     if action == "+":
-
                         if alias is None:
                             if d.debug:
                                 print("Adding '" + str(command) + "' to store")
@@ -2098,8 +2080,7 @@ def run(*args):
                             else:
                                 if d.debug:
                                     print(
-                                        "Couldn't remove the item (item could not be"
-                                        " located)"
+                                        "Couldn't remove the item (item could not be located)"
                                     )
 
                             d.message_open(
@@ -2161,8 +2142,7 @@ def run(*args):
             elif out.find(":") != -1:
                 if d.debug:
                     print(
-                        "Colon detected in command, could be a path or attempt to open"
-                        " something with something"
+                        "Colon detected in command, could be a path or attempt to open something with something"
                     )
                     print(out)
                 tmp = out.split(":")
@@ -2223,8 +2203,7 @@ def run(*args):
                     if out[-1] == ":":
                         if d.debug:
                             print(
-                                "User wants to be prompted with options for opening"
-                                " passed item"
+                                "User wants to be prompted with options for opening passed item"
                             )
                         binary = d.menu(d.scan_binaries())
                         command = binary + " '" + os.path.expanduser(out[:-1]) + "'"
@@ -2233,15 +2212,13 @@ def run(*args):
                         command = cmds[1] + " '" + os.path.expanduser(cmds[0]) + "'"
                         if d.debug:
                             print(
-                                "Second item passed so assume this is what the user"
-                                " wants to use to open path with"
+                                "Second item passed so assume this is what the user wants to use to open path with"
                             )
                             print("Command=" + command)
                     else:
                         if d.debug:
                             print(
-                                "Second item not passed so allow the user to choose the"
-                                " program they wish to use"
+                                "Second item not passed so allow the user to choose the program they wish to use"
                             )
                         binary = d.menu(d.scan_binaries())
                         command = binary + " '" + os.path.expanduser(cmds[0]) + "'"
@@ -2264,8 +2241,7 @@ def run(*args):
                     d.menu(
                         [
                             "Cache rebuilt",
-                            "Performance issues were detected - some paths contained"
-                            " invalid characters",
+                            "Performance issues were detected - some paths contained invalid characters",
                         ]
                     )
                 else:
