@@ -8,14 +8,32 @@ on:
       - main
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Build test environment
-      run: ./test.sh --build
-    - name: Lint code
-      run: ./test.sh --lint
-    - name: Run system test
-      run: ./test.sh --system
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - name: Install ruff
+        run: pip install ruff
+      - name: Check Python formatting
+        run: ruff format --check src/dmenu_extended tests/
+      - name: Check Python style
+        run: ruff check src/dmenu_extended tests/
+      - name: Setup shfmt
+        uses: mfinelli/setup-shfmt@v3
+      - name: Check shell formatting
+        run: shfmt -d *.sh
+
+  system-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Build test environment
+        run: ./test.sh --build
+      - name: Run system test
+        run: ./test.sh --system

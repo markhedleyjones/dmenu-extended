@@ -1,5 +1,4 @@
 build
-flake8-black
+ruff
 mock
 pytest
-python-semantic-release>=8.0.0

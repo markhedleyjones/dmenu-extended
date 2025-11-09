@@ -3,7 +3,7 @@
 set -eu
 
 cleanup() {
-    rm -rf ./dist ./src/dmenu_extended.egg-info
+	rm -rf ./dist ./src/dmenu_extended.egg-info
 }
 
 cleanup

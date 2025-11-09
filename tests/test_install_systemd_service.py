@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
+import os
+import shutil
+
 import install_systemd_service
 import mock
-import os
 import pytest
-import shutil
 
 test_path = os.path.dirname(os.path.abspath(__file__))
 

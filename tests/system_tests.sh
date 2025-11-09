@@ -4,24 +4,24 @@ failed_tests=()
 current_test=""
 
 start_test() {
-  current_test="$1"
-  echo ""
-  echo "Running test: $1 ..."
-  if [ -f /tmp/output ]; then
-    rm /tmp/output
-  fi
+	current_test="$1"
+	echo ""
+	echo "Running test: $1 ..."
+	if [ -f /tmp/output ]; then
+		rm /tmp/output
+	fi
 }
 
 pass() {
-  echo " ✓ ${current_test} passed"
+	echo " ✓ ${current_test} passed"
 }
 
 fail() {
-  echo " ✗ ${current_test} failed"
-  failed_tests+=("${current_test}")
-  if [ -f /tmp/output ]; then
-    cat /tmp/output
-  fi
+	echo " ✗ ${current_test} failed"
+	failed_tests+=("${current_test}")
+	if [ -f /tmp/output ]; then
+		cat /tmp/output
+	fi
 }
 
 ## TEST DEFINITIONS ##
@@ -44,12 +44,12 @@ if cat ~/.cache/dmenu-extended/dmenuExtended_files.txt | grep ${target} >/dev/nu
 
 echo ""
 if [ ${#failed_tests[@]} -eq 0 ]; then
-  echo "All tests passed"
-  exit 0
+	echo "All tests passed"
+	exit 0
 else
-  echo "Failed tests:"
-  for test in "${failed_tests[@]}"; do
-    echo "  ${test}"
-  done
-  exit 1
+	echo "Failed tests:"
+	for test in "${failed_tests[@]}"; do
+		echo "  ${test}"
+	done
+	exit 1
 fi
