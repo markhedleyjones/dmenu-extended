@@ -1279,6 +1279,9 @@ class dmenu(object):
         other += ["rebuild cache"]
         self.cache_save(other, file_cache)
 
+        # Clean frequently used items that are no longer in cache
+        self.clean_frequently_used_items()
+
         out = plugins
         out += other
 
