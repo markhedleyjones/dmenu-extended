@@ -729,6 +729,37 @@ class dmenu(object):
                 out[index] = part.replace("'", "")
         return out
 
+    def clean_frequently_used_items(self):
+        """
+        Remove items from frequently used that no longer exist in the cache.
+        """
+        if not os.path.exists(file_cache_frequentlyUsed_frequency):
+            return
+
+        # Load all items from cache
+        cache_items = set()
+        if os.path.exists(file_cache):
+            with open(file_cache, "r") as f:
+                cache_items = set(line.strip() for line in f if line.strip())
+
+        # Load frequently used items
+        freq_items = self.load_json(file_cache_frequentlyUsed_frequency)
+
+        # Keep only items that exist in cache
+        cleaned_items = {k: v for k, v in freq_items.items() if k in cache_items}
+
+        # Save cleaned version if anything was removed
+        if len(cleaned_items) < len(freq_items):
+            self.save_json(file_cache_frequentlyUsed_frequency, cleaned_items)
+
+            # Regenerate ordered file
+            sorted_items = sorted(
+                cleaned_items.items(), key=operator.itemgetter(1), reverse=True
+            )
+            with open(file_cache_frequentlyUsed_ordered, "w") as f:
+                for cmd, _ in sorted_items:
+                    f.write(cmd + "\n")
+
     def execute(self, command, fork=None):
         """
         Execute a command on behalf of dmenu. Will fork into background
