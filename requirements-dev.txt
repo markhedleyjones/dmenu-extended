@@ -1,5 +1,9 @@
 # Development dependencies
 ruff  # Python formatter and linter
+pytest  # Test runner
+mock  # Mocking library for tests
+build  # Build tool for creating distributions
+
 # Note: shfmt is a Go binary - install with your package manager:
 #   Arch:   sudo pacman -S shfmt
 #   Fedora: sudo dnf install shfmt

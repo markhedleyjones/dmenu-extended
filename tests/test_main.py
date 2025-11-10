@@ -5,7 +5,8 @@ from os import path
 
 import mock
 
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+# Add src directory to path to import dmenu_extended
+sys.path.insert(0, path.join(path.dirname(__file__), "..", "src"))
 import dmenu_extended as d
 
 menu = d.dmenu()
