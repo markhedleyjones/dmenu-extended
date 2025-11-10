@@ -102,7 +102,7 @@ def unsatisfied_plugin_requirements(plugin):
 
 
 path_base = os.path.expanduser("~") + "/.config/dmenu-extended"
-path_cache = (
+path_cache = os.getenv("DMENU_EXTENDED_CACHE_DIR") or (
     os.getenv("XDG_CACHE_HOME", os.path.join(os.path.expanduser("~"), ".cache"))
     + "/dmenu-extended"
 )
