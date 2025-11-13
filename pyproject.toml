@@ -28,6 +28,14 @@ dependencies = ["setuptools>=61.0"]
 "Homepage" = "https://github.com/MarkHedleyJones/dmenu-extended"
 "Bug Tracker" = "https://github.com/MarkHedleyJones/dmenu-extended/issues"
 
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "pytest",
+    "mock",
+    "build",
+]
+
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
 branch = "main"

@@ -2,8 +2,12 @@
 
 import os
 import shutil
+import sys
 
-import install_systemd_service
+# Add parent directory to path to import dmenu_extended
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+from dmenu_extended import install_systemd_service
 import mock
 import pytest
 
