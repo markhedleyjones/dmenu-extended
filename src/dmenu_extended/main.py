@@ -572,12 +572,12 @@ class dmenu(object):
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                     )
-                if self.debug:
+                if debug:
                     print(f"Copied to clipboard using {tool}: {text}")
                 return True
             except (FileNotFoundError, subprocess.CalledProcessError):
                 continue
-        if self.debug:
+        if debug:
             print("Warning: No clipboard tool found (tried wl-copy, xclip, xsel)")
         return False
 
