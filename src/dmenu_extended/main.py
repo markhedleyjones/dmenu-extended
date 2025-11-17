@@ -101,6 +101,9 @@ def unsatisfied_plugin_requirements(plugin):
     return unsatisfied_requirements
 
 
+debug = False
+
+
 path_base = os.path.expanduser("~") + "/.config/dmenu-extended"
 path_cache = (
     os.getenv("XDG_CACHE_HOME", os.path.join(os.path.expanduser("~"), ".cache"))
@@ -282,7 +285,8 @@ else:
 import plugins  # noqa: E402
 
 
-def load_plugins(debug=False):
+def load_plugins():
+    global debug
     if debug:
         print("Loading plugins")
 
@@ -290,8 +294,6 @@ def load_plugins(debug=False):
 
     # Pass the plug-in's version of dmenu the list of launch arguments
     plugins_loaded[0]["plugin"].launch_args = d.launch_args
-    if debug:
-        plugins_loaded[0]["plugin"].debug = True
 
     for plugin in plugins.__all__:
         if plugin not in ["__init__", "plugin_settings.py"]:
@@ -307,7 +309,6 @@ def load_plugins(debug=False):
                 # Pass the plug-in's version of dmenu the list of launch arguments
                 plugins_loaded[-1]["plugin"].launch_args = d.launch_args
                 if debug:
-                    plugins_loaded[-1]["plugin"].debug = True
                     print("Loaded plugin " + plugin)
             except Exception as e:
                 print("Error loading plugin " + plugin + ": " + str(e))
@@ -316,28 +317,29 @@ def load_plugins(debug=False):
 
 
 def frequent_commands_store(command):
+    global debug
     """Records the user's execution of a command. This involves first adding the command
     to a dictionary, or incrementing the frequency count if it already exists.
     That dictionary is then used to create the frequently used cache by sorting based
     on value (frequency), then writing the sorted commands to the frequency file.
     """
     if os.path.exists(file_cache_frequentlyUsed_frequency) is False:
-        if d.debug:
+        if debug:
             print("Frequently used items does not exist, starting new...")
         cmds = {}
     else:
-        if d.debug:
+        if debug:
             print("Frequently used items cache exists, retrieving...")
         cmds = d.load_json(file_cache_frequentlyUsed_frequency)
 
-    if d.debug:
+    if debug:
         print("Adding entered command to the cache...")
     if command in cmds.keys():
         cmds[command] += 1
     else:
         cmds[command] = 1
 
-    if d.debug:
+    if debug:
         print("Sorting and saving the cache...")
 
     d.save_json(file_cache_frequentlyUsed_frequency, cmds)
@@ -350,13 +352,14 @@ def frequent_commands_store(command):
 
 
 def frequent_commands_retrieve(number):
+    global debug
     """Retrieves the list of frequently used commands, sorted by their frequency"""
     if os.path.exists(file_cache_frequentlyUsed_ordered) is False:
-        if d.debug:
+        if debug:
             print("Frequently used items cache does not exist, will return nothing")
         return ""
     else:
-        if d.debug:
+        if debug:
             print(
                 "Frequently used items cache exists, retrieving and clipping to "
                 + str(number)
@@ -369,7 +372,6 @@ def frequent_commands_retrieve(number):
 class dmenu(object):
     plugins_loaded = False
     prefs = False
-    debug = False
     preCommand = False
     launch_args = []  # Holds a list of menu items to automatically select
     cache_dir = path_cache  # Stores the cache dir, could be used by plugins
@@ -387,12 +389,13 @@ class dmenu(object):
         """
 
         if self.plugins_loaded is False:
-            self.plugins_loaded = load_plugins(self.debug)
+            self.plugins_loaded = load_plugins()
         elif force:
-            if self.debug:
+            global debug
+            if debug:
                 print("Forced reloading of plugins")
             importlib.reload(plugins)
-            self.plugins_loaded = load_plugins(self.debug)
+            self.plugins_loaded = load_plugins()
 
         return self.plugins_loaded
 
@@ -440,6 +443,7 @@ class dmenu(object):
         return paths
 
     def load_json(self, path):
+        global debug
         """Loads and returns the parsed contents of a specified json file
 
         This method will return 'False' if either the file does not exist
@@ -451,7 +455,7 @@ class dmenu(object):
                 try:
                     return json.load(f)
                 except json.JSONDecodeError:
-                    if self.debug:
+                    if debug:
                         print("Error parsing prefs from json file " + path)
                     self.prefs = default_prefs
                     option = "Edit file manually"
@@ -461,7 +465,7 @@ class dmenu(object):
                     if response == option:
                         self.open_file(path)
         else:
-            if self.debug:
+            if debug:
                 print("Error opening json file " + path)
                 print("File does not exist")
             return False
@@ -473,6 +477,7 @@ class dmenu(object):
             json.dump(items, f, sort_keys=True, indent=4)
 
     def load_preferences(self):
+        global debug
         if self.prefs is False:
             self.prefs = self.load_json(file_prefs)
 
@@ -537,12 +542,13 @@ class dmenu(object):
         return self.command_output(command)
 
     def menu(self, items, prompt=""):
+        global debug
         self.load_preferences()
         # Check the passed commands from launch for a shortcut
         if len(self.launch_args) > 0:
             out = self.launch_args[0]
             self.launch_args = self.launch_args[1:]
-            if self.debug:
+            if debug:
                 print("Menu bypassed with launch argument: " + out)
             return out
         else:
@@ -570,11 +576,12 @@ class dmenu(object):
                 return out
 
     def select(self, items, prompt="", numeric=False):
+        global debug
         # Check the passed commands from launch for a shortcut
         if len(self.launch_args) > 0:
             result = self.launch_args[0]
             self.launch_args = self.launch_args[1:]
-            if self.debug:
+            if debug:
                 print("Menu bypassed with launch argument: " + result)
         else:
             result = self.menu(items, prompt)
@@ -592,14 +599,16 @@ class dmenu(object):
         return items
 
     def open_url(self, url):
+        global debug
         self.load_preferences()
-        if self.debug:
+        if debug:
             print('Opening url: "' + url + '" with ' + self.prefs["webbrowser"])
         self.execute(self.prefs["webbrowser"] + " " + url.replace(" ", "%20"))
 
     def open_directory(self, path):
+        global debug
         self.load_preferences()
-        if self.debug:
+        if debug:
             print('Opening folder: "' + path + '" with ' + self.prefs["filebrowser"])
         self.execute(self.prefs["filebrowser"] + ' "' + path + '"')
 
@@ -621,8 +630,9 @@ class dmenu(object):
             os.system(self.prefs["terminal"] + " -e " + sh_command_file)
 
     def open_in_terminal_editor(self, path):
+        global debug
         if not os.path.exists(path):
-            if d.debug:
+            if debug:
                 print("Open in the default terminal editor...")
                 print(str(path) + ": path doesn't exist")
             return
@@ -633,7 +643,7 @@ class dmenu(object):
             path.replace(" ", "\\ "),
         )
 
-        if d.debug:
+        if debug:
             print("Open in the default terminal editor...")
             print("Terminal will be held open upon command finishing")
             print("Command is: " + str(cmd))
@@ -641,8 +651,9 @@ class dmenu(object):
         return d.execute(cmd, False)
 
     def open_file(self, path):
+        global debug
         self.load_preferences()
-        if self.debug:
+        if debug:
             print(
                 "Opening file with command: "
                 + self.prefs["fileopener"]
@@ -730,12 +741,13 @@ class dmenu(object):
         return out
 
     def execute(self, command, fork=None):
+        global debug
         """
         Execute a command on behalf of dmenu. Will fork into background
         by default unless fork=False. Will prepend the value of
         self.preCommand to the given command, necessary for sudo calls.
         """
-        if self.debug:
+        if debug:
             (print("Executing:"),)
             print(command)
 
@@ -746,7 +758,7 @@ class dmenu(object):
         if self.preCommand:
             command = [self.preCommand] + command
 
-        if self.debug:
+        if debug:
             print("Command converted into:")
             print(command)
 
@@ -766,6 +778,7 @@ class dmenu(object):
         return cache
 
     def cache_save(self, items, path):
+        global debug
         try:
             with open(path, "w") as f:
                 if isinstance(items, list):
@@ -777,7 +790,7 @@ class dmenu(object):
         except UnicodeEncodeError:
             tmp = []
             foundError = False
-            if self.debug:
+            if debug:
                 print("Non-printable characters detected in cache: ")
             for item in items:
                 clean = True
@@ -785,7 +798,7 @@ class dmenu(object):
                     if not str.isprintable(char):
                         clean = False
                         foundError = True
-                        if self.debug:
+                        if debug:
                             print(
                                 "Culprit: "
                                 + item.encode("unicode_escape").decode("utf-8")
@@ -793,7 +806,7 @@ class dmenu(object):
                 if clean:
                     tmp.append(item)
             if foundError:
-                if self.debug:
+                if debug:
                     print("")
                     print(
                         "Caching performance will be affected while these items remain"
@@ -804,13 +817,14 @@ class dmenu(object):
                         f.write(item.encode("unicode_escape") + b"\n")
                 return 2
             else:
-                if self.debug:
+                if debug:
                     print("Unknown error saving data cache")
                 return 0
 
     def cache_open(self, path):
+        global debug
         try:
-            if self.debug:
+            if debug:
                 print("Opening cache at " + path)
             with open(path, "r") as f:
                 return f.read()
@@ -949,24 +963,26 @@ class dmenu(object):
         return applications
 
     def retrieve_aliased_command(self, alias):
+        global debug
         """
         Return the command intended to be executed by the given alias.
         """
         aliases = self.load_json(file_cache_aliasesLookup)
-        if self.debug:
+        if debug:
             print("Converting '" + alias + "' into its aliased command")
         print(alias)
         for item in aliases:
             if item[0] == alias:
-                if self.debug:
+                if debug:
                     print("Converted " + alias + " to: " + item[1])
                 return item[1]
-        if self.debug:
+        if debug:
             print("No suitable candidate was found")
 
     def plugins_available(self):
+        global debug
         self.load_preferences()
-        if self.debug:
+        if debug:
             print("Loading available plugins...")
 
         plugins = self.get_plugins(True)
@@ -979,7 +995,7 @@ class dmenu(object):
             else:
                 plugin_titles.append(plugin["plugin"].title)
 
-        if self.debug:
+        if debug:
             print("Done!")
             print("Plugins loaded:")
             print("First 5 items: ")
@@ -1002,9 +1018,10 @@ class dmenu(object):
             pass
 
     def parse_alias_file(self, path):
+        global debug
         out = []
         with open(path.replace("~", os.path.expanduser("~")), "r") as f:
-            if self.debug:
+            if debug:
                 print("Opening alias file")
             for line in f.readlines():
                 if line[:6].lower() == "alias ":
@@ -1024,6 +1041,7 @@ class dmenu(object):
         return out
 
     def build_cache(self):
+        global debug
         self.load_preferences()
 
         valid_extensions = []
@@ -1116,7 +1134,7 @@ class dmenu(object):
             lambda x: x.replace("~", os.path.expanduser("~")), watch_folders
         )
 
-        if self.debug:
+        if debug:
             print("Done!")
             print("Watch folders:")
             print("Loading the list of folders to be excluded from the index...")
@@ -1131,7 +1149,7 @@ class dmenu(object):
                     exclude_folder.replace("~", os.path.expanduser("~"))
                 )
 
-        if self.debug:
+        if debug:
             print("Done!")
             print("Excluded folders:")
             print("First 5 items: ")
@@ -1149,7 +1167,7 @@ class dmenu(object):
         except (KeyError, TypeError):
             pass
 
-        if self.debug:
+        if debug:
             if follow_symlinks:
                 print("Indexing will not follow linked folders")
             else:
@@ -1201,7 +1219,7 @@ class dmenu(object):
                         aliased_items.append(self.format_alias(item[0], item[1]))
                         aliases.append([self.format_alias(item[0], item[1]), item[1]])
                     else:
-                        if self.debug:
+                        if debug:
                             print(
                                 "There are aliased items in the configuration with no command."
                             )
@@ -1251,7 +1269,7 @@ class dmenu(object):
         out = plugins
         out += other
 
-        if self.debug:
+        if debug:
             print("Done!")
             print("Cache building has finished.")
             print("")
@@ -1274,23 +1292,24 @@ class extension(dmenu):
     ]
 
     def rebuild_cache(self):
+        global debug
         time_start = time.time()
-        if self.debug:
+        if debug:
             print("Counting items in original cache")
 
         cacheSize = len(self.cache_load().split("\n"))
 
-        if self.debug:
+        if debug:
             print("Rebuilding the cache...")
         result = self.cache_regenerate()
-        if self.debug:
+        if debug:
             print("Cache built")
             print("Counting items in new cache")
         newSize = len(self.cache_load().split("\n"))
-        if self.debug:
+        if debug:
             print("New cache size = " + str(newSize))
         cacheSizeChange = newSize - cacheSize
-        if self.debug:
+        if debug:
             if cacheSizeChange != 0:
                 print(
                     "This differs from original by " + str(cacheSizeChange) + " items"
@@ -1452,7 +1471,7 @@ class extension(dmenu):
 
                         self.menu(["Plugin downloaded and installed successfully"])
 
-                        if self.debug:
+                        if debug:
                             print("Plugins available:")
                             for plugin in self.plugins_available():
                                 print(plugin)
@@ -1484,17 +1503,17 @@ class extension(dmenu):
             if os.path.exists(path):
                 os.remove(path)
                 self.menu(['Plugin "' + plugin + '" was removed.'])
-                if self.debug:
+                if debug:
                     print("Plugins available:")
                     for plugin in self.plugins_available():
                         print(plugin)
                 else:
                     self.plugins_available()
             else:
-                if self.debug:
+                if debug:
                     print("Error - Plugin not found")
         else:
-            if self.debug:
+            if debug:
                 print("Selection was not understood")
 
     def update_plugins(self):
@@ -1513,7 +1532,7 @@ class extension(dmenu):
                     here_sha = self.command_output(
                         "sha1sum " + path_plugins + "/" + here + ".py"
                     )[0].split()[0]
-                    if self.debug:
+                    if debug:
                         print("Checking " + here)
                         print("Local copy has sha of " + here_sha)
                         print("Remote copy has sha of " + there_sha)
@@ -1526,7 +1545,7 @@ class extension(dmenu):
                             "sha1sum /tmp/" + here + ".py"
                         )[0].split()[0]
                         if download_sha != there_sha:
-                            if self.debug:
+                            if debug:
                                 print(
                                     "Downloaded version of "
                                     + there
@@ -1550,11 +1569,11 @@ class extension(dmenu):
                                 + here
                                 + ".py"
                             )
-                            if self.debug:
+                            if debug:
                                 print("Done!")
                             updated += [here]
                     else:
-                        if self.debug:
+                        if debug:
                             print(here + "is up-to-date")
         self.message_close()
         if len(updated) == 0:
@@ -1688,9 +1707,10 @@ def is_binary(d, path):
 
 
 def handle_command(d, out):
+    global debug
     if out.find("~") != -1:
         out = os.path.expanduser(out)
-        if d.debug:
+        if debug:
             print("Tilda found, expanding to " + str(out))
     if out[-1] == "@":
         d.open_in_terminal_editor(out[:-1])
@@ -1700,13 +1720,13 @@ def handle_command(d, out):
         if out[-1] == ";":
             terminal_hold = True
             out = out[:-1]
-        if d.debug:
+        if debug:
             print("Input will be treated as a terminal command")
             if terminal_hold:
                 print("Terminal will be held open upon command finishing")
             print("Command is: " + str(out))
         if os.path.isdir(out):
-            if d.debug:
+            if debug:
                 print("This is a path so will open it in the terminal")
             d.open_terminal(
                 "cd " + out + " && " + d.prefs["terminal"] + " &", direct=True
@@ -1714,48 +1734,48 @@ def handle_command(d, out):
         else:
             d.open_terminal(out, hold=terminal_hold)
     elif out.find("/") != -1:
-        if d.debug:
+        if debug:
             print("Item has forward slashes, interpret as a path or url")
         # Check if this is a url and launch as such
         if out[:7] == "http://" or out[:8] == "https://":
-            if d.debug:
+            if debug:
                 print("Starts with http..., execute as a url")
             d.open_url(out)
         # Check if this is a binary file, with execute permissions, if so, run it.
         elif is_binary(d, out):
-            if d.debug:
+            if debug:
                 print("Item found in binaries, execute its binary")
             d.execute(out)
         elif out.find(" ") != -1:
-            if d.debug:
+            if debug:
                 print("Item contained spaces so is likely a binary acting on x")
             parts = out.split(" ")
             if parts[0] in d.scan_binaries():
-                if d.debug:
+                if debug:
                     print("Found the binary, executing the command")
                 d.execute(out)
             else:
-                if d.debug:
+                if debug:
                     print("Binary not found, must be a path or file")
                 if os.path.isdir(out):
                     d.open_directory(out)
                 else:
                     d.open_file(out)
         else:
-            if d.debug:
+            if debug:
                 print("Item assumed not to be a URL or binary")
             if os.path.isdir(out):
-                if d.debug:
+                if debug:
                     print(
                         "Checked item and found it to be a directory, opening as such"
                     )
                 d.open_directory(out)
             else:
-                if d.debug:
+                if debug:
                     print("Checked item and found it to be a file, opening as such")
                 d.open_file(out)
     else:
-        if d.debug:
+        if debug:
             print("Executing user input as a command")
         d.execute(out)
 
@@ -1768,7 +1788,8 @@ def init_menu(launch_args):
         return 1
 
     if "--debug" in launch_args:
-        d.debug = True
+        global debug
+        debug = True
         launch_args.remove("--debug")
         print("Debugging enabled")
         print("Launch arguments: " + str(launch_args))
@@ -1798,8 +1819,9 @@ def init_menu(launch_args):
         return 1
 
 
-def run(*args):
-    if init_menu(list(args[1:])):
+def run():
+    global debug
+    if init_menu(sys.argv[1:]):
         return
 
     cache = d.cache_load()
@@ -1808,10 +1830,10 @@ def run(*args):
     aliased = False
 
     if len(out) > 0:
-        if d.debug:
+        if debug:
             print("First menu closed with user input: '" + out + "'")
         # Check if the action relates to a plugin
-        plugins = load_plugins(d.debug)
+        plugins = load_plugins()
         plugin_hook = False
         for plugin in plugins:
             if (
@@ -1831,10 +1853,10 @@ def run(*args):
         if plugin_hook is not False:
             plugin_hook[0].load_preferences()
             plugin_hook[0].run(out[len(plugin_hook[1]) :].strip())
-            if d.debug:
+            if debug:
                 print("This command refers to a plugin")
         else:
-            if d.debug:
+            if debug:
                 print("This command is not related to a plugin")
             # Check to see if the command is an alias for something
             if d.retrieve_aliased_command(out) is not None:
@@ -1848,7 +1870,7 @@ def run(*args):
                 # Check for store modifications
                 # Dont allow command aliases that add new commands
                 if out[0] in "+-":
-                    if d.debug:
+                    if debug:
                         print("Detected command as an attempt to modify the cache")
                     action = out[0]
                     out = out[1:]
@@ -1862,7 +1884,7 @@ def run(*args):
                     else:
                         alias = None
 
-                    if d.debug:
+                    if debug:
                         print("out = '" + str(out) + "'")
                         print("tmp = '" + str(tmp) + "'")
                         print("action = '" + str(action) + "'")
@@ -1871,7 +1893,7 @@ def run(*args):
 
                     # Check to see if the item is in the include_items list
                     found_in_store = False
-                    if d.debug:
+                    if debug:
                         print(
                             "Command = '"
                             + str(command)
@@ -1883,21 +1905,21 @@ def run(*args):
 
                     for item in d.prefs["include_items"]:
                         if action == "+" and isinstance(item, list):
-                            if d.debug:
+                            if debug:
                                 print(
                                     "Is (+) " + str(item[0]) + " == " + str(alias) + "?"
                                 )
                             if alias == item[0]:
-                                if d.debug:
+                                if debug:
                                     print("Yes")
                                 found_in_store = True
                                 break
-                            elif d.debug:
+                            elif debug:
                                 print("No")
 
                         # If removing a command - an alias would be detected as command
                         if action == "-" and isinstance(item, list):
-                            if d.debug:
+                            if debug:
                                 print(
                                     "Is (-) "
                                     + str(d.format_alias(item[0], item[1]))
@@ -1911,15 +1933,15 @@ def run(*args):
                                 if d.prefs["indicator_alias"] != "":
                                     alias = alias[len(d.prefs["indicator_alias"]) + 1 :]
                                 command = item[1]
-                                if d.debug:
+                                if debug:
                                     print("Yes")
                                     print("Command is now: " + str(command))
                                     print("Alias is now: " + str(alias))
                                 break
-                            elif d.debug:
+                            elif debug:
                                 print("No")
 
-                            if d.debug:
+                            if debug:
                                 print(
                                     "Is (-) "
                                     + str(d.format_alias(item[0], item[1]))
@@ -1933,15 +1955,15 @@ def run(*args):
                                 if d.prefs["indicator_alias"] != "":
                                     alias = alias[len(d.prefs["indicator_alias"]) + 1 :]
                                 command = item[1]
-                                if d.debug:
+                                if debug:
                                     print("Yes")
                                     print("Command is now: " + str(command))
                                     print("Alias is now: " + str(alias))
                                 break
-                            elif d.debug:
+                            elif debug:
                                 print("No")
 
-                            if d.debug:
+                            if debug:
                                 print(
                                     "Is (-) "
                                     + str(item[0])
@@ -1955,23 +1977,23 @@ def run(*args):
                                 if d.prefs["indicator_alias"] != "":
                                     alias = alias[len(d.prefs["indicator_alias"]) + 1 :]
                                 command = item[1]
-                                if d.debug:
+                                if debug:
                                     print("Yes")
                                     print("Command is now: " + str(command))
                                     print("Alias is now: " + str(alias))
                                 break
-                            elif d.debug:
+                            elif debug:
                                 print("No")
 
                         if isinstance(item, list):
-                            if d.debug:
+                            if debug:
                                 print("Is " + str(item) + " == " + str(command) + "?")
                             if command == item:
-                                if d.debug:
+                                if debug:
                                     print("Yes")
                                 found_in_store = True
                                 break
-                            elif d.debug:
+                            elif debug:
                                 print("No")
 
                     if action == "+" and found_in_store is True:
@@ -2021,13 +2043,13 @@ def run(*args):
 
                     if action == "+":
                         if alias is None:
-                            if d.debug:
+                            if debug:
                                 print("Adding '" + str(command) + "' to store")
                             d.prefs["include_items"].append(command)
                             d.message_open("Adding item to store: " + str(command))
                             cache_scanned = [command] + cache_scanned
                         else:
-                            if d.debug:
+                            if debug:
                                 print(
                                     "Adding aliased command '"
                                     + str([alias, command])
@@ -2052,7 +2074,7 @@ def run(*args):
                         cache_scanned.sort(key=len)
                     elif action == "-":
                         if alias is None:
-                            if d.debug:
+                            if debug:
                                 print(
                                     "Will try to remove command: '"
                                     + str(command)
@@ -2063,7 +2085,7 @@ def run(*args):
                             try:
                                 cache_scanned.remove(command)
                             except ValueError:
-                                if d.debug:
+                                if debug:
                                     print("Could not remove item from the cache")
                                 else:
                                     pass
@@ -2073,12 +2095,12 @@ def run(*args):
                                 if item[0] == alias:
                                     to_remove = item
                             if to_remove is not None:
-                                if d.debug:
+                                if debug:
                                     print("Item found and is")
                                     print(to_remove)
                                 d.prefs["include_items"].remove(to_remove)
                             else:
-                                if d.debug:
+                                if debug:
                                     print(
                                         "Couldn't remove the item (item could not be located)"
                                     )
@@ -2090,7 +2112,7 @@ def run(*args):
                             try:
                                 cache_scanned.remove(d.format_alias(alias, command))
                             except ValueError:
-                                if d.debug:
+                                if debug:
                                     print("Could not remove item from the cache")
                                 else:
                                     pass
@@ -2140,7 +2162,7 @@ def run(*args):
             if out[:7] == "http://" or out[:8] == "https://" or aliased is True:
                 handle_command(d, out)
             elif out.find(":") != -1:
-                if d.debug:
+                if debug:
                     print(
                         "Colon detected in command, could be a path or attempt to open something with something"
                     )
@@ -2153,16 +2175,16 @@ def run(*args):
                 if len(cmds[0]) > 0 and cmds[0][-1] == ";":
                     if cmds[0][-2] == ";":
                         shell_hold = True
-                        if d.debug:
+                        if debug:
                             print("Will hold")
                     else:
-                        if d.debug:
+                        if debug:
                             print("Wont hold")
                     cmds[0] = cmds[0].replace(";", "")
                     run_withshell = True
 
                 if cmds[0] == "":
-                    if d.debug:
+                    if debug:
                         print("No program specified, issuing program options to user")
                     items = list(
                         filter(lambda x: x.find(cmds[1]) != -1, cache.split("\n"))
@@ -2170,7 +2192,7 @@ def run(*args):
                     item = d.menu(items)
                     handle_command(d, item)
                 elif cmds[0] in d.scan_binaries():
-                    if d.debug:
+                    if debug:
                         print(
                             "Item[0] ("
                             + cmds[0]
@@ -2192,16 +2214,16 @@ def run(*args):
                     else:
                         d.execute(command)
                 elif os.path.exists(out):
-                    if d.debug:
+                    if debug:
                         print(
                             "The whole thing is a path, just open it with file_handler"
                         )
                     handle_command(d, out)
                 elif cmds[0].find("/") != -1:
-                    if d.debug:
+                    if debug:
                         print("First item is a path")
                     if out[-1] == ":":
-                        if d.debug:
+                        if debug:
                             print(
                                 "User wants to be prompted with options for opening passed item"
                             )
@@ -2210,26 +2232,26 @@ def run(*args):
                     elif cmds[1] != "":
                         # Check that the whole thing isn't a path with a colon in it
                         command = cmds[1] + " '" + os.path.expanduser(cmds[0]) + "'"
-                        if d.debug:
+                        if debug:
                             print(
                                 "Second item passed so assume this is what the user wants to use to open path with"
                             )
                             print("Command=" + command)
                     else:
-                        if d.debug:
+                        if debug:
                             print(
                                 "Second item not passed so allow the user to choose the program they wish to use"
                             )
                         binary = d.menu(d.scan_binaries())
                         command = binary + " '" + os.path.expanduser(cmds[0]) + "'"
-                        if d.debug:
+                        if debug:
                             print("User selected: " + binary)
                             print("Command=" + command)
 
                     d.execute(command)
                 else:
                     d.menu(["Cant find " + cmds[0] + ", is it installed?"])
-                    if d.debug:
+                    if debug:
                         print("Input command not understood")
                 sys.exit()
 
@@ -2255,6 +2277,7 @@ d = dmenu()
 
 
 def build_cache():
+    global debug
     d.build_cache()
 
 
