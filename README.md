@@ -221,13 +221,13 @@ To enable this feature, add the `-kb-custom-1` argument to your `menu_arguments`
   "-dmenu",
   "-i",
   "-kb-custom-1",
-  "Control+c"
+  "Alt+c"
 ],
 ```
 
-Now when you press Ctrl+C (or whatever key you bind), the selected entry will be copied to your clipboard and dmenu-extended will exit. You can then paste the entry elsewhere.
+Now when you press Alt+C (or whatever key you bind), the selected entry will be copied to your clipboard and dmenu-extended will exit. You can then paste the entry elsewhere.
 
-**Note:** This feature is only available when using Rofi. Standard dmenu does not support custom key bindings.
+**Note:** This feature is only available when using Rofi. Standard dmenu does not support custom key bindings. Some key combinations like `Control+c` are already bound by Rofi and cannot be used for custom bindings.
 
 ## Advanced usage
 
