@@ -81,3 +81,57 @@ def test_command_to_list():
 def test_scan_binaries_file_in_system_path():
     with mock.patch.object(menu, "system_path", new=lambda: ["/bin", "/bin/cp"]):
         assert isinstance(menu.scan_binaries(), list)
+
+
+def test_copy_to_clipboard_wl_copy():
+    with mock.patch("subprocess.run") as mock_run:
+        mock_run.return_value = mock.Mock(returncode=0)
+        result = menu.copy_to_clipboard("test text")
+        assert result is True
+        mock_run.assert_called_once()
+        args = mock_run.call_args[0][0]
+        assert args[0] == "wl-copy"
+
+
+def test_copy_to_clipboard_xclip():
+    with mock.patch("subprocess.run") as mock_run:
+
+        def side_effect(cmd, **kwargs):
+            if cmd[0] == "wl-copy":
+                raise FileNotFoundError()
+            return mock.Mock(returncode=0)
+
+        mock_run.side_effect = side_effect
+        result = menu.copy_to_clipboard("test text")
+        assert result is True
+        assert mock_run.call_count == 2
+        args = mock_run.call_args[0][0]
+        assert args[0] == "xclip"
+        assert "-selection" in args
+        assert "clipboard" in args
+
+
+def test_copy_to_clipboard_xsel():
+    with mock.patch("subprocess.run") as mock_run:
+
+        def side_effect(cmd, **kwargs):
+            if cmd[0] in ["wl-copy", "xclip"]:
+                raise FileNotFoundError()
+            return mock.Mock(returncode=0)
+
+        mock_run.side_effect = side_effect
+        result = menu.copy_to_clipboard("test text")
+        assert result is True
+        assert mock_run.call_count == 3
+        args = mock_run.call_args[0][0]
+        assert args[0] == "xsel"
+        assert "--clipboard" in args
+        assert "--input" in args
+
+
+def test_copy_to_clipboard_no_tool_available():
+    with mock.patch("subprocess.run") as mock_run:
+        mock_run.side_effect = FileNotFoundError()
+        result = menu.copy_to_clipboard("test text")
+        assert result is False
+        assert mock_run.call_count == 3

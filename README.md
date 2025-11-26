@@ -206,6 +206,29 @@ You may also need to add
 
 to remove the extra colon depending on your Rofi version.
 
+### Copying entries to clipboard with Rofi
+
+When using Rofi, you can configure a custom key binding to copy the currently selected menu entry to the clipboard instead of executing it. This requires:
+
+1. A clipboard tool installed (`wl-copy` for Wayland, or `xclip`/`xsel` for X11)
+2. Rofi configured with a custom key binding
+
+To enable this feature, add the `-kb-custom-1` argument to your `menu_arguments`:
+
+```json
+"menu": "rofi",
+"menu_arguments": [
+  "-dmenu",
+  "-i",
+  "-kb-custom-1",
+  "Alt+c"
+],
+```
+
+Now when you press Alt+C (or whatever key you bind), the selected entry will be copied to your clipboard and dmenu-extended will exit. You can then paste the entry elsewhere.
+
+**Note:** This feature is only available when using Rofi. Standard dmenu does not support custom key bindings. Some key combinations like `Control+c` are already bound by Rofi and cannot be used for custom bindings.
+
 ## Advanced usage
 
 Dmenu-extended understands the following modifier characters when entering a special command:

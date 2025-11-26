@@ -541,6 +541,46 @@ class dmenu(object):
                 command[index] = item.format(prompt=prompt)
         return self.command_output(command)
 
+    def copy_to_clipboard(self, text):
+        clipboard_tools = ["wl-copy", "xclip", "xsel"]
+        for tool in clipboard_tools:
+            try:
+                if tool == "xclip":
+                    subprocess.run(
+                        [tool, "-selection", "clipboard"],
+                        input=text,
+                        text=True,
+                        check=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                elif tool == "xsel":
+                    subprocess.run(
+                        [tool, "--clipboard", "--input"],
+                        input=text,
+                        text=True,
+                        check=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                else:
+                    subprocess.run(
+                        [tool],
+                        input=text,
+                        text=True,
+                        check=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                if debug:
+                    print(f"Copied to clipboard using {tool}: {text}")
+                return True
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                continue
+        if debug:
+            print("Warning: No clipboard tool found (tried wl-copy, xclip, xsel)")
+        return False
+
     def menu(self, items, prompt=""):
         global debug
         self.load_preferences()
@@ -569,6 +609,12 @@ class dmenu(object):
             out = p.communicate(items)[0]
             out = out.strip("\n")
             out = out.strip()
+
+            # Handle rofi custom key (exit code 10) - copy to clipboard
+            if p.returncode == 10:
+                if len(out) > 0:
+                    self.copy_to_clipboard(out)
+                sys.exit()
 
             if len(out) == 0:
                 sys.exit()
