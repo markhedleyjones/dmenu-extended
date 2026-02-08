@@ -515,8 +515,11 @@ class dmenu(object):
 
     def message_open(self, message):
         self.load_preferences()
+        expanded_args = [
+            os.path.expandvars(arg) for arg in self.prefs["menu_arguments"]
+        ]
         self.message = subprocess.Popen(
-            [self.prefs["menu"]] + self.prefs["menu_arguments"],
+            [self.prefs["menu"]] + expanded_args,
             stdin=subprocess.PIPE,
             preexec_fn=os.setsid,
             text=True,
@@ -592,8 +595,11 @@ class dmenu(object):
                 print("Menu bypassed with launch argument: " + out)
             return out
         else:
+            expanded_args = [
+                os.path.expandvars(arg) for arg in self.prefs["menu_arguments"]
+            ]
             p = subprocess.Popen(
-                [self.prefs["menu"]] + self.prefs["menu_arguments"] + ["-p", prompt],
+                [self.prefs["menu"]] + expanded_args + ["-p", prompt],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 text=True,
