@@ -25,7 +25,7 @@ An extension to the original [dmenu](http://tools.suckless.org/dmenu/) allowing 
 
 ### Dependencies
 
-- **Python** - version 3.7 or higher
+- **Python** - version 3.8 or higher
 - **dmenu** - version 4.5 or later
 
 Quick dependency install:

@@ -5,6 +5,8 @@ import importlib.metadata
 import json
 import operator
 import os
+import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -676,9 +678,11 @@ class dmenu(object):
 
         os.chmod(os.path.expanduser(sh_command_file), 0o744)
         if direct:
-            os.system("sh -e " + sh_command_file)
+            subprocess.call(["sh", "-e", sh_command_file])
         else:
-            os.system(self.prefs["terminal"] + " -e " + sh_command_file)
+            subprocess.call(
+                shlex.split(self.prefs["terminal"]) + ["-e", sh_command_file]
+            )
 
     def open_in_terminal_editor(self, path):
         global debug
@@ -845,9 +849,9 @@ class dmenu(object):
             print(command)
 
         if self.prefs["interactive_shell"] is True:
-            shell = os.environ.get("SHELL", "/usr/bin/env bash")
-            command = '{} -i -c "{}"'.format(shell, " ".join(command))
-        return subprocess.call(command, shell=self.prefs["interactive_shell"])
+            shell = os.environ.get("SHELL") or "/bin/sh"
+            return subprocess.call([shell, "-i", "-c", " ".join(command)])
+        return subprocess.call(command)
 
     def cache_regenerate(self, message=True):
         if message:
@@ -1515,7 +1519,7 @@ class extension(dmenu):
                             ]:
                                 found = True
                                 try:
-                                    exec("import " + depend)
+                                    importlib.import_module(depend)
                                 except ImportError:
                                     found = False
                                     fail = True
@@ -1527,9 +1531,7 @@ class extension(dmenu):
                                         + depend
                                         + ")"
                                     )
-                                    lookup.append(
-                                        "https://pypi.python.org/pypi/" + depend
-                                    )
+                                    lookup.append("https://pypi.org/project/" + depend)
                         if fail:
                             self.message_close()
                             outcome = self.select(message, "Message:", numeric=True)
@@ -1625,7 +1627,9 @@ class extension(dmenu):
                         sys.stdout.write("Hashes do not match, updating...\n")
                         if os.path.exists("/tmp/" + there + ".py"):
                             os.remove("/tmp/" + there + ".py")
-                        os.system("wget " + plugins_there[there]["url"] + " -P /tmp")
+                        subprocess.call(
+                            ["wget", plugins_there[there]["url"], "-P", "/tmp"]
+                        )
                         download_sha = self.command_output(
                             "sha1sum /tmp/" + here + ".py"
                         )[0].split()[0]
@@ -1645,14 +1649,9 @@ class extension(dmenu):
                                 print("Plugin not updated")
                         else:
                             os.remove(path_plugins + "/" + here + ".py")
-                            os.system(
-                                "mv /tmp/"
-                                + here
-                                + ".py "
-                                + path_plugins
-                                + "/"
-                                + here
-                                + ".py"
+                            shutil.move(
+                                "/tmp/" + here + ".py",
+                                path_plugins + "/" + here + ".py",
                             )
                             if debug:
                                 print("Done!")
@@ -1899,7 +1898,7 @@ def init_menu(launch_args):
     d.load_preferences()
 
     # check executable
-    if os.system("which " + d.prefs["menu"]) != 0:
+    if shutil.which(d.prefs["menu"]) is None:
         print(d.prefs["menu"] + " executable not found, aborting...")
         return 1
 
