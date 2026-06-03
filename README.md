@@ -1,13 +1,16 @@
-<img src="https://travis-ci.org/MarkHedleyJones/dmenu-extended.svg?branch=master" alt="build:passed">
+[![CI](https://github.com/markhedleyjones/dmenu-extended/actions/workflows/ci.yml/badge.svg)](https://github.com/markhedleyjones/dmenu-extended/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/dmenu_extended)](https://pypi.org/project/dmenu-extended/)
+[![Python versions](https://img.shields.io/pypi/pyversions/dmenu_extended)](https://pypi.org/project/dmenu-extended/)
+[![License: MIT](https://img.shields.io/pypi/l/dmenu_extended)](https://github.com/markhedleyjones/dmenu-extended/blob/main/LICENSE)
 
 # dmenu-extended
 
-An extension to the original [dmenu](http://tools.suckless.org/dmenu/) allowing super fast access to your files, folders, and programs. dmenu-extended has support for plugins, command aliasing, file filtering, and customisation. You can also use dmenu-extended with [rofi](https://davatorium.github.io/rofi/)!.
+An extension to the original [dmenu](http://tools.suckless.org/dmenu/) allowing super fast access to your files, folders, and programs. dmenu-extended has support for plugins, command aliasing, file filtering, and customisation. You can also use dmenu-extended with [rofi](https://davatorium.github.io/rofi/)!
 
 ## See it in action
 
 <p align="center">
-  <img src="https://raw.github.com/markhedleyjones/dmenu-extended/master/docs/demo.gif" alt="Dmenu-extended demo"/>
+  <img src="https://raw.githubusercontent.com/markhedleyjones/dmenu-extended/main/docs/demo.gif" alt="Dmenu-extended demo"/>
 </p>
 
 ## Feature Summary:
@@ -22,7 +25,7 @@ An extension to the original [dmenu](http://tools.suckless.org/dmenu/) allowing 
 
 ### Dependencies
 
-- **Python** - version 3.6 or higher
+- **Python** - version 3.7 or higher
 - **dmenu** - version 4.5 or later
 
 Quick dependency install:
@@ -116,7 +119,7 @@ Functions of the items are as follows.
 - `"include_items"` list of extra items to include in the cache
 - `"exclude_items"` list of items to be excluded from the cache
 - `"include_binaries"` add items found in the system path
-- `"filter_binaries"` boolean that causes binaries not associated with destkop applications (those having a .desktop file) to be omitted from the cache (e.g. `cp`, `mv`)
+- `"filter_binaries"` boolean that causes binaries not associated with desktop applications (those having a .desktop file) to be omitted from the cache (e.g. `cp`, `mv`)
 - `"include_applications"` add items found under /usr/share/applications
 - `"alias_applications"` alias applications with their intended names
 - `"path_aliasFile"` path to a file containing aliases (e.g. ~/.bash_aliases)
@@ -157,12 +160,12 @@ To install the background service, run:
 dmenu_extended_install_systemd_service
 ```
 
-Alternative intervals can be specified by passing the `--interval-interval-mins [MINS]` argument and specifying the interval in minutes.
+Alternative intervals can be specified by passing the `--rebuild-interval-mins [MINS]` argument and specifying the interval in minutes.
 The service can then be enabled and disabled in the `-> Settings` menu of dmenu-extended.
 
 ### Background cache rebuild with Incron
 
-You can also rebuild the cache everytime a file or folder is being created, deleted or moved from or to the monitored path.
+You can also rebuild the cache every time a file or folder is being created, deleted or moved from or to the monitored path.
 Have [Incron](https://wiki.archlinux.org/index.php/Incron) up and running. Edit your incrontab `incrontab -e` and add following line:
 
     <PATH_TO_MONITOR>  IN_CREATE,IN_DELETE,IN_MOVE     <PATH_DMENU_EXTENDED_CACHE_BUILD>
@@ -253,7 +256,7 @@ Once added these commands are stored in the preferences file (see general config
 
 #### Built-in support for aliases
 
-In addidion to adding items manually, dmenu_extended allows the addition of a more descriptive label for a stored command.
+In addition to adding items manually, dmenu_extended allows the addition of a more descriptive label for a stored command.
 For instance:
 
 - `+htop;#View running processes` displays as `# View system processes (htop)`
@@ -320,20 +323,20 @@ zenity --password --title="Sudo password prompt"
 3. Make the askpass script executable by running `sudo chmod +x /usr/local/bin/zenity_askpass`
 4. Create/edit the sudo configuration file `sudo nano /etc/sudo.conf` and make sure it contains the line `Path askpass /usr/local/bin/zenity_askpass`
 
-Test the configuration by running a sudo command via dmenu-extended (e.g., `sudo gedit`). You should be prompted grapically for the password before the program opens.
+Test the configuration by running a sudo command via dmenu-extended (e.g., `sudo gedit`). You should be prompted graphically for the password before the program opens.
 
 <p align="center">
-  <img src="https://raw.github.com/markhedleyjones/dmenu-extended/master/docs/sc-password.png" alt="Password manager screenshot"/>
+  <img src="https://raw.githubusercontent.com/markhedleyjones/dmenu-extended/main/docs/sc-password.png" alt="Password manager screenshot"/>
 </p>
 
 ## Contributing
 
 Any sort of contribution is welcome, for example:
 
-- Helping out people who have [Issues](https://github.com/MarkHedleyJones/dmenu-extended/issues)
+- Helping out people who have [Issues](https://github.com/markhedleyjones/dmenu-extended/issues)
 - Writing tests
 - Improving code
-- Writing [plugins](https://github.com/MarkHedleyJones/dmenu-extended-plugins)
+- Writing [plugins](https://github.com/markhedleyjones/dmenu-extended-plugins)
 - Updating documentation
 
 For those looking to improve the code, pull-requests should follow the project's formatting standards. Only Python3 is currently supported.
@@ -376,7 +379,7 @@ This will use local tools if available, or fall back to Docker if needed.
 - **Alad** from the [CrunchBang forums](http://crunchbang.org/forums/viewtopic.php?id=36484) for advice on packaging.
 - **Head_on_a_Stick** also from the [CrunchBang forums](http://crunchbang.org/forums/viewtopic.php?id=36484) for advice on packaging.
 - [**EDI9999**](https://github.com/edi9999) for performance improvements to cache scanning.
-- **Pandya** from [this stackexchange answer](https://unix.stackexchange.com/a/254073) for infomation on how to set-up a password helper
+- **Pandya** from [this stackexchange answer](https://unix.stackexchange.com/a/254073) for information on how to set-up a password helper
 - [**nanobecquerel**](https://github.com/nanobecquerel) for improving systemd integration
 - [**fat-fighter**](https://github.com/fat-fighter) for bug fixes and solving GitHub issues
 - [**vestingz**](https://github.com/vestingz) for Incron and pacman integration.
