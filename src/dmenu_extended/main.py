@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import hashlib
 import importlib
 import importlib.metadata
 import json
@@ -113,6 +114,9 @@ path_cache = os.getenv("DMENU_EXTENDED_CACHE_DIR") or (
 path_prefs = path_base + "/config"
 path_plugins = path_base + "/plugins"
 
+# Seconds to wait when downloading a plugin index or plugin file.
+plugin_download_timeout = 15
+
 file_prefs = path_prefs + "/dmenuExtended_preferences.txt"
 file_cache = path_cache + "/dmenuExtended_all.txt"
 file_cache_binaries = path_cache + "/dmenuExtended_binaries.txt"
@@ -178,6 +182,11 @@ default_prefs = {
     "alias_applications": True,  # Alias applications with their common names
     "path_aliasFile": "",  # Pointer to an aliases file (if any)
     "abbreviate_homedir": False,  # Use ~ in place of /home/username
+    "plugin_repositories": [
+        # Base URLs (or local directory paths) that contain a plugins_index.json.
+        # Add your own; downloads are verified against the index sha256 hash.
+        "https://raw.githubusercontent.com/markhedleyjones/dmenu-extended-plugins/main",
+    ],
     "frequently_used": 0,  # Number of most frequently used commands to show in the menu
     "alias_display_format": "{name}",
     "path_shellCommand": "~/.dmenuEextended_shellCommand.sh",
@@ -509,10 +518,42 @@ class dmenu(object):
         self.save_json(file_prefs, self.prefs)
 
     def download_text(self, url):
-        return urllib.request.urlopen(url).read()
+        return urllib.request.urlopen(url, timeout=plugin_download_timeout).read()
 
     def download_json(self, url):
         return json.loads(self.download_text(url))
+
+    def fetch_resource(self, location):
+        """Return the bytes of a plugin resource from an https URL or local path.
+
+        Plain http is refused - an installed plugin is executed, so its source
+        must not be interceptable in transit.
+        """
+        if location.startswith(("http://", "https://")):
+            if not location.startswith("https://"):
+                raise ValueError(
+                    "refusing to fetch plugin over plain http: " + location
+                )
+            return urllib.request.urlopen(
+                location, timeout=plugin_download_timeout
+            ).read()
+        with open(os.path.expanduser(location), "rb") as handle:
+            return handle.read()
+
+    @staticmethod
+    def verify_plugin(meta, data):
+        """Check downloaded plugin bytes against the index hash (sha256 preferred).
+
+        Returns True only on a positive match; a missing hash is treated as a
+        failure so unverifiable plugins are never installed.
+        """
+        if meta.get("sha256"):
+            return hashlib.sha256(data).hexdigest() == meta["sha256"]
+        if meta.get("sha1sum"):
+            print("warning: plugin provides only a sha1 hash; sha256 is preferred")
+            return hashlib.sha1(data).hexdigest() == meta["sha1sum"]
+        print("warning: plugin index entry has no integrity hash; refusing")
+        return False
 
     def message_open(self, message):
         self.load_preferences()
@@ -1373,12 +1414,13 @@ class extension(dmenu):
     def __init__(self):
         self.load_preferences()
 
-    base_url = "https://raw.githubusercontent.com"
-    plugins_index_urls = [
-        f"{base_url}/markhedleyjones/dmenu-extended-plugins/master/plugins_index.json",
-        f"{base_url}/v1nc/dmenu-extended-plugins/master/plugins_index.json",
-        f"{base_url}/mg979/dmenu-extended-plugins/master/plugins_index.json",
-    ]
+    def repository_bases(self):
+        """Trusted plugin repository bases from the plugin_repositories preference.
+
+        Each is a base URL (or local directory) that holds a plugins_index.json
+        and the plugin files. Configurable so users can add their own sources.
+        """
+        return [base.rstrip("/") for base in self.prefs.get("plugin_repositories", [])]
 
     def rebuild_cache(self):
         global debug
@@ -1439,19 +1481,23 @@ class extension(dmenu):
 
     def download_plugins_json(self):
         plugins = {}
-        for plugins_index_url in self.plugins_index_urls:
+        for base in self.repository_bases():
             try:
-                plugins.update(self.download_json(plugins_index_url))
+                index = json.loads(self.fetch_resource(base + "/plugins_index.json"))
             except Exception as e:
                 print("Error downloading plugins index: " + str(e))
                 self.message_close()
                 self.menu(
                     [
-                        "Error: Could not connect to plugin repository.",
-                        "Please check your internet connection and try again.",
+                        "Error: Could not read plugin repository " + base,
+                        "Please check your connection or configuration and try again.",
                     ]
                 )
                 sys.exit()
+            for name, meta in index.items():
+                entry = dict(meta)
+                entry["repository"] = base
+                plugins[name] = entry
         return plugins
 
     def download_plugins(self):
@@ -1546,7 +1592,16 @@ class extension(dmenu):
                             ]
                         )
                     else:
-                        plugin_source = self.download_text(plugin["url"])
+                        source = plugin["repository"] + "/" + plugin_name + ".py"
+                        plugin_source = self.fetch_resource(source)
+                        if not self.verify_plugin(plugin, plugin_source):
+                            self.message_close()
+                            self.menu(
+                                [
+                                    "Plugin failed its integrity check and was not installed"
+                                ]
+                            )
+                            return
                         with open(path_plugins + "/" + plugin_name + ".py", "wb") as f:
                             f.write(plugin_source)
 
@@ -1613,52 +1668,25 @@ class extension(dmenu):
         self.message_close()
         updated = []
         for here in plugins_here:
-            for there in plugins_there:
-                if there == here:
-                    there_sha = plugins_there[there]["sha1sum"]
-                    here_sha = self.command_output(
-                        "sha1sum " + path_plugins + "/" + here + ".py"
-                    )[0].split()[0]
+            meta = plugins_there.get(here)
+            if meta is None:
+                continue
+            local_path = path_plugins + "/" + here + ".py"
+            with open(local_path, "rb") as handle:
+                if self.verify_plugin(meta, handle.read()):
                     if debug:
-                        print("Checking " + here)
-                        print("Local copy has sha of " + here_sha)
-                        print("Remote copy has sha of " + there_sha)
-                    if there_sha != here_sha:
-                        sys.stdout.write("Hashes do not match, updating...\n")
-                        if os.path.exists("/tmp/" + there + ".py"):
-                            os.remove("/tmp/" + there + ".py")
-                        subprocess.call(
-                            ["wget", plugins_there[there]["url"], "-P", "/tmp"]
-                        )
-                        download_sha = self.command_output(
-                            "sha1sum /tmp/" + here + ".py"
-                        )[0].split()[0]
-                        if download_sha != there_sha:
-                            if debug:
-                                print(
-                                    "Downloaded version of "
-                                    + there
-                                    + " does not verify against package manager"
-                                    " sha1sum key"
-                                )
-                                print("SHA1SUM of downloaded version = " + download_sha)
-                                print(
-                                    "SHA1SUM specified by package manager = "
-                                    + there_sha
-                                )
-                                print("Plugin not updated")
-                        else:
-                            os.remove(path_plugins + "/" + here + ".py")
-                            shutil.move(
-                                "/tmp/" + here + ".py",
-                                path_plugins + "/" + here + ".py",
-                            )
-                            if debug:
-                                print("Done!")
-                            updated += [here]
-                    else:
-                        if debug:
-                            print(here + "is up-to-date")
+                        print(here + " is up-to-date")
+                    continue
+            if debug:
+                print("Hashes do not match, updating " + here)
+            new_source = self.fetch_resource(meta["repository"] + "/" + here + ".py")
+            if not self.verify_plugin(meta, new_source):
+                if debug:
+                    print("Downloaded " + here + " failed its integrity check")
+                continue
+            with open(local_path, "wb") as handle:
+                handle.write(new_source)
+            updated += [here]
         self.message_close()
         if len(updated) == 0:
             self.menu(["There are no new updates for installed plugins"])

@@ -9,11 +9,12 @@ example raising on a plugin index entry that lacks a requirements key), the
 test asserts the odd behaviour rather than the ideal one.
 
 All boundaries are mocked: no real dmenu/rofi is launched, no network request
-is made (download_text / download_json / urllib are stubbed), and any
-filesystem writes go to tmp_path or a tempfile directory.
+is made (fetch_resource / urllib are stubbed), and any filesystem writes go to
+tmp_path or a tempfile directory.
 """
 
 import contextlib
+import hashlib
 import os
 import sys
 import tempfile
@@ -325,34 +326,69 @@ def test_plugins_available_forces_plugin_reload():
 # ---------------------------------------------------------------------------
 
 
-def test_download_plugins_json_merges_all_index_urls():
-    # The index is fetched from every URL in plugins_index_urls and merged into
-    # a single dict (later URLs overwrite earlier keys via dict.update).
+def test_download_plugins_json_fetches_index_from_each_base():
+    # The index is fetched from "<base>/plugins_index.json" for every configured
+    # repository base, then merged into a single dict.
     inst = make_extension()
-    inst.plugins_index_urls = ["http://example/a.json", "http://example/b.json"]
-    with mock.patch.object(inst, "download_json") as dj:
-        dj.side_effect = [
-            {"plugin_a": {"url": "ua", "sha1sum": "sa"}},
-            {"plugin_b": {"url": "ub", "sha1sum": "sb"}},
+    inst.prefs = {"plugin_repositories": ["https://repo-a", "https://repo-b"]}
+    with mock.patch.object(inst, "fetch_resource") as fetch:
+        fetch.side_effect = [
+            b'{"plugin_a": {"url": "ua", "sha256": "sa"}}',
+            b'{"plugin_b": {"url": "ub", "sha256": "sb"}}',
         ]
         merged = inst.download_plugins_json()
 
-    assert dj.call_count == 2
+    # One fetch per base, addressed at the index file under each base.
+    assert [c[0][0] for c in fetch.call_args_list] == [
+        "https://repo-a/plugins_index.json",
+        "https://repo-b/plugins_index.json",
+    ]
     assert merged == {
-        "plugin_a": {"url": "ua", "sha1sum": "sa"},
-        "plugin_b": {"url": "ub", "sha1sum": "sb"},
+        "plugin_a": {"url": "ua", "sha256": "sa", "repository": "https://repo-a"},
+        "plugin_b": {"url": "ub", "sha256": "sb", "repository": "https://repo-b"},
     }
 
 
+def test_download_plugins_json_tags_entries_with_repository():
+    # Every merged entry is tagged with the base it came from so the install and
+    # update flows know where to fetch the plugin source.
+    inst = make_extension()
+    inst.prefs = {"plugin_repositories": ["https://repo-a"]}
+    with mock.patch.object(
+        inst,
+        "fetch_resource",
+        return_value=b'{"plugin_a": {"url": "ua", "sha256": "sa"}}',
+    ):
+        merged = inst.download_plugins_json()
+
+    assert merged["plugin_a"]["repository"] == "https://repo-a"
+
+
+def test_download_plugins_json_last_repository_wins_on_collision():
+    # When two repositories define the same plugin name, the later base in the
+    # list overwrites the earlier one (and so does its repository tag).
+    inst = make_extension()
+    inst.prefs = {"plugin_repositories": ["https://repo-a", "https://repo-b"]}
+    with mock.patch.object(inst, "fetch_resource") as fetch:
+        fetch.side_effect = [
+            b'{"plugin_x": {"url": "from-a", "sha256": "sa"}}',
+            b'{"plugin_x": {"url": "from-b", "sha256": "sb"}}',
+        ]
+        merged = inst.download_plugins_json()
+
+    assert merged["plugin_x"]["url"] == "from-b"
+    assert merged["plugin_x"]["repository"] == "https://repo-b"
+
+
 def test_download_plugins_json_error_exits():
-    # A failure fetching any index closes the wait message, shows an error menu,
-    # and exits the process via sys.exit().
+    # A failure reading any index closes the wait message, shows an error menu
+    # naming the offending base, and exits the process via sys.exit().
     import pytest
 
     inst = make_extension()
-    inst.plugins_index_urls = ["http://example/a.json"]
+    inst.prefs = {"plugin_repositories": ["https://repo-a"]}
     with (
-        mock.patch.object(inst, "download_json", side_effect=Exception("boom")),
+        mock.patch.object(inst, "fetch_resource", side_effect=Exception("boom")),
         mock.patch.object(inst, "message_close") as mc,
         mock.patch.object(inst, "menu") as menu,
     ):
@@ -361,8 +397,8 @@ def test_download_plugins_json_error_exits():
 
     assert mc.called
     assert menu.call_args[0][0] == [
-        "Error: Could not connect to plugin repository.",
-        "Please check your internet connection and try again.",
+        "Error: Could not read plugin repository https://repo-a",
+        "Please check your connection or configuration and try again.",
     ]
 
 
@@ -372,16 +408,17 @@ def test_download_plugins_json_error_exits():
 
 
 def test_download_plugins_installs_selected_plugin(tmp_path):
-    # The happy path: an index entry carrying url + sha1sum + desc + (empty)
-    # requirements is offered, selected, downloaded via download_text, and
-    # written to path_plugins as <plugin_name>.py.
+    # The happy path: an index entry carrying a sha256 + desc + (empty)
+    # requirements is offered, selected, fetched from "<repository>/<name>.py",
+    # verified, and written to path_plugins as <plugin_name>.py.
     inst = make_extension()
+    source = b"# plugin source"
     plugins_json = {
         "plugin_foo": {
-            "url": "http://example/foo.py",
-            "sha1sum": "abc123",
+            "sha256": hashlib.sha256(source).hexdigest(),
             "desc": "Foo plugin",
             "requirements": {},
+            "repository": "https://repo-a",
         }
     }
 
@@ -399,8 +436,8 @@ def test_download_plugins_installs_selected_plugin(tmp_path):
         )
         stack.enter_context(mock.patch.object(inst, "message_open"))
         stack.enter_context(mock.patch.object(inst, "message_close"))
-        dt = stack.enter_context(
-            mock.patch.object(inst, "download_text", return_value=b"# plugin source")
+        fetch = stack.enter_context(
+            mock.patch.object(inst, "fetch_resource", return_value=source)
         )
         stack.enter_context(mock.patch.object(inst, "plugins_available"))
         menu = stack.enter_context(mock.patch.object(inst, "menu"))
@@ -409,13 +446,58 @@ def test_download_plugins_installs_selected_plugin(tmp_path):
 
     # The selectable item has the "plugin_" prefix stripped for display.
     assert select.call_args[0][0] == ["foo - Foo plugin"]
-    # download_text is called with the plugin's url.
-    dt.assert_called_once_with("http://example/foo.py")
+    # The source is fetched from "<repository>/<plugin_name>.py".
+    fetch.assert_called_once_with("https://repo-a/plugin_foo.py")
     # The file is written back WITH the plugin_ prefix.
     written = tmp_path / "plugin_foo.py"
     assert written.exists()
-    assert written.read_bytes() == b"# plugin source"
+    assert written.read_bytes() == source
     assert menu.call_args[0][0] == ["Plugin downloaded and installed successfully"]
+
+
+def test_download_plugins_refuses_to_write_on_failed_verification(tmp_path):
+    # When the fetched source fails verify_plugin (sha256 mismatch), the install
+    # is aborted: the failure menu is shown and NO file is written to disk.
+    inst = make_extension()
+    plugins_json = {
+        "plugin_foo": {
+            "sha256": "0" * 64,  # does not match the fetched bytes
+            "desc": "Foo plugin",
+            "requirements": {},
+            "repository": "https://repo-a",
+        }
+    }
+
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(
+            mock.patch.object(inst, "download_plugins_json", return_value=plugins_json)
+        )
+        stack.enter_context(
+            mock.patch.object(
+                inst, "get_plugins", return_value=[{"filename": "plugin_settings.py"}]
+            )
+        )
+        stack.enter_context(
+            mock.patch.object(inst, "select", return_value="foo - Foo plugin")
+        )
+        stack.enter_context(mock.patch.object(inst, "message_open"))
+        stack.enter_context(mock.patch.object(inst, "message_close"))
+        stack.enter_context(
+            mock.patch.object(inst, "fetch_resource", return_value=b"tampered source")
+        )
+        plugins_available = stack.enter_context(
+            mock.patch.object(inst, "plugins_available")
+        )
+        menu = stack.enter_context(mock.patch.object(inst, "menu"))
+        stack.enter_context(mock.patch.object(main, "path_plugins", str(tmp_path)))
+        inst.download_plugins()
+
+    assert menu.call_args[0][0] == [
+        "Plugin failed its integrity check and was not installed"
+    ]
+    # Nothing was written, and the success path (cache rebuild) was not reached.
+    assert list(tmp_path.iterdir()) == []
+    assert plugins_available.called is False
 
 
 def test_download_plugins_no_new_plugins(tmp_path):
@@ -604,18 +686,19 @@ def test_download_plugins_missing_external_dependency_aborts(tmp_path):
 
 
 def test_update_plugins_downloads_when_hash_differs(tmp_path):
-    # When the local sha1sum differs from the index sha1sum and the freshly
-    # downloaded copy verifies against the index, the old plugin is removed and
-    # the downloaded one is moved into place. wget downloads to /tmp.
+    # When the local file does not verify against the index hash, the new source
+    # is fetched from "<repository>/<name>.py"; once it verifies, the local file
+    # is overwritten in place (no /tmp, no wget, no subprocess).
     inst = make_extension()
-    plugins_there = {"foo": {"url": "http://example/foo.py", "sha1sum": "REMOTE_SHA"}}
-
-    def command_output(command, split=True):
-        # The downloaded copy lives at /tmp/foo.py and matches the remote sha.
-        if command == "sha1sum /tmp/foo.py":
-            return ["REMOTE_SHA  /tmp/foo.py"]
-        # The local copy reports a different sha.
-        return ["LOCAL_SHA  " + command]
+    new_source = b"# updated plugin source"
+    plugins_there = {
+        "foo": {
+            "sha256": hashlib.sha256(new_source).hexdigest(),
+            "repository": "https://repo-a",
+        }
+    }
+    local_file = tmp_path / "foo.py"
+    local_file.write_bytes(b"# stale local source")
 
     with contextlib.ExitStack() as stack:
         stack.enter_context(mock.patch.object(inst, "message_open"))
@@ -633,30 +716,72 @@ def test_update_plugins_downloads_when_hash_differs(tmp_path):
         stack.enter_context(
             mock.patch.object(inst, "download_plugins_json", return_value=plugins_there)
         )
-        stack.enter_context(
-            mock.patch.object(inst, "command_output", side_effect=command_output)
+        fetch = stack.enter_context(
+            mock.patch.object(inst, "fetch_resource", return_value=new_source)
         )
         menu = stack.enter_context(mock.patch.object(inst, "menu"))
-        call = stack.enter_context(mock.patch("subprocess.call"))
-        stack.enter_context(mock.patch("os.path.exists", return_value=False))
-        remove = stack.enter_context(mock.patch("os.remove"))
-        move = stack.enter_context(mock.patch("shutil.move"))
         stack.enter_context(mock.patch.object(main, "path_plugins", str(tmp_path)))
         inst.update_plugins()
 
-    # wget is invoked to download into /tmp.
-    assert call.call_args[0][0] == ["wget", "http://example/foo.py", "-P", "/tmp"]
-    # The stale local copy is removed and the verified download moved over it.
-    assert remove.call_args[0][0] == str(tmp_path) + "/foo.py"
-    assert move.call_args[0] == ("/tmp/foo.py", str(tmp_path) + "/foo.py")
+    # The new source is fetched from "<repository>/<name>.py".
+    fetch.assert_called_once_with("https://repo-a/foo.py")
+    # The verified download is written over the stale local copy.
+    assert local_file.read_bytes() == new_source
     assert menu.call_args[0][0] == ["foo was updated to the latest version"]
 
 
 def test_update_plugins_skips_when_hash_matches(tmp_path):
-    # When the local sha1sum already matches the index sha1sum, no download
-    # happens and the "no new updates" message is shown.
+    # When the local file already verifies against the index hash, nothing is
+    # fetched and the "no new updates" message is shown.
     inst = make_extension()
-    plugins_there = {"foo": {"url": "u", "sha1sum": "SAME"}}
+    source = b"# current plugin source"
+    plugins_there = {
+        "foo": {
+            "sha256": hashlib.sha256(source).hexdigest(),
+            "repository": "https://repo-a",
+        }
+    }
+    local_file = tmp_path / "foo.py"
+    local_file.write_bytes(source)
+
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(mock.patch.object(inst, "message_open"))
+        stack.enter_context(mock.patch.object(inst, "message_close"))
+        stack.enter_context(
+            mock.patch.object(
+                inst,
+                "get_plugins",
+                return_value=[
+                    {"filename": "plugin_settings.py"},
+                    {"filename": "foo.py"},
+                ],
+            )
+        )
+        stack.enter_context(
+            mock.patch.object(inst, "download_plugins_json", return_value=plugins_there)
+        )
+        fetch = stack.enter_context(mock.patch.object(inst, "fetch_resource"))
+        menu = stack.enter_context(mock.patch.object(inst, "menu"))
+        stack.enter_context(mock.patch.object(main, "path_plugins", str(tmp_path)))
+        inst.update_plugins()
+
+    assert fetch.called is False
+    assert local_file.read_bytes() == source
+    assert menu.call_args[0][0] == ["There are no new updates for installed plugins"]
+
+
+def test_update_plugins_does_not_write_on_failed_verification(tmp_path):
+    # If the freshly fetched source fails verification, the local file is left
+    # untouched and the update is not counted.
+    inst = make_extension()
+    plugins_there = {
+        "foo": {
+            "sha256": "0" * 64,  # matches neither local nor fetched bytes
+            "repository": "https://repo-a",
+        }
+    }
+    local_file = tmp_path / "foo.py"
+    local_file.write_bytes(b"# stale local source")
 
     with contextlib.ExitStack() as stack:
         stack.enter_context(mock.patch.object(inst, "message_open"))
@@ -675,14 +800,13 @@ def test_update_plugins_skips_when_hash_matches(tmp_path):
             mock.patch.object(inst, "download_plugins_json", return_value=plugins_there)
         )
         stack.enter_context(
-            mock.patch.object(inst, "command_output", return_value=["SAME  irrelevant"])
+            mock.patch.object(inst, "fetch_resource", return_value=b"tampered source")
         )
         menu = stack.enter_context(mock.patch.object(inst, "menu"))
-        call = stack.enter_context(mock.patch("subprocess.call"))
         stack.enter_context(mock.patch.object(main, "path_plugins", str(tmp_path)))
         inst.update_plugins()
 
-    assert call.called is False
+    assert local_file.read_bytes() == b"# stale local source"
     assert menu.call_args[0][0] == ["There are no new updates for installed plugins"]
 
 
@@ -714,17 +838,120 @@ def test_update_plugins_requires_settings_plugin_present():
 # ---------------------------------------------------------------------------
 
 
-def test_plugins_index_urls_point_at_raw_github():
-    # The settings plugin pulls the index from raw.githubusercontent.com for the
-    # three known plugin repositories.
+def test_default_prefs_plugin_repositories_points_at_official_main_branch():
+    # The shipped default repository is the official plugins repo on its main
+    # branch, served over https.
+    repos = main.default_prefs["plugin_repositories"]
+    assert repos == [
+        "https://raw.githubusercontent.com/markhedleyjones/dmenu-extended-plugins/main"
+    ]
+
+
+# ---------------------------------------------------------------------------
+# repository_bases
+# ---------------------------------------------------------------------------
+
+
+def test_repository_bases_derived_from_prefs():
+    # repository_bases reads the plugin_repositories preference verbatim.
     inst = make_extension()
-    assert inst.base_url == "https://raw.githubusercontent.com"
-    assert len(inst.plugins_index_urls) == 3
-    assert all(
-        url.startswith("https://raw.githubusercontent.com")
-        and url.endswith("/plugins_index.json")
-        for url in inst.plugins_index_urls
-    )
+    inst.prefs = {"plugin_repositories": ["https://repo-a", "https://repo-b"]}
+    assert inst.repository_bases() == ["https://repo-a", "https://repo-b"]
+
+
+def test_repository_bases_strips_trailing_slash():
+    # A trailing slash on a configured base is stripped so "<base>/file" joins
+    # cleanly without a doubled slash.
+    inst = make_extension()
+    inst.prefs = {"plugin_repositories": ["https://repo-a/", "/local/path/"]}
+    assert inst.repository_bases() == ["https://repo-a", "/local/path"]
+
+
+def test_repository_bases_empty_when_pref_absent():
+    # With no plugin_repositories key the list is empty (the get() default).
+    inst = make_extension()
+    inst.prefs = {}
+    assert inst.repository_bases() == []
+
+
+# ---------------------------------------------------------------------------
+# verify_plugin
+# ---------------------------------------------------------------------------
+
+
+def test_verify_plugin_sha256_match():
+    data = b"plugin bytes"
+    meta = {"sha256": hashlib.sha256(data).hexdigest()}
+    assert main.extension.verify_plugin(meta, data) is True
+
+
+def test_verify_plugin_sha256_mismatch():
+    meta = {"sha256": "0" * 64}
+    assert main.extension.verify_plugin(meta, b"plugin bytes") is False
+
+
+def test_verify_plugin_sha256_takes_precedence_over_sha1(capsys):
+    # When a sha256 is present it is used and the sha1 branch (which prints a
+    # warning) is never reached.
+    data = b"plugin bytes"
+    meta = {
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "sha1sum": "deadbeef",  # wrong, but should be ignored
+    }
+    assert main.extension.verify_plugin(meta, data) is True
+    assert "sha1" not in capsys.readouterr().out
+
+
+def test_verify_plugin_sha1_only_match(capsys):
+    # With no sha256, a matching sha1sum verifies, but a warning is printed.
+    data = b"plugin bytes"
+    meta = {"sha1sum": hashlib.sha1(data).hexdigest()}
+    assert main.extension.verify_plugin(meta, data) is True
+    assert "sha1" in capsys.readouterr().out
+
+
+def test_verify_plugin_sha1_only_mismatch():
+    meta = {"sha1sum": "0" * 40}
+    assert main.extension.verify_plugin(meta, b"plugin bytes") is False
+
+
+def test_verify_plugin_no_hash_returns_false(capsys):
+    # An entry with no integrity hash cannot be verified and is refused, with a
+    # warning printed.
+    assert main.extension.verify_plugin({}, b"plugin bytes") is False
+    assert "no integrity hash" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# fetch_resource
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_resource_refuses_plain_http():
+    import pytest
+
+    inst = make_extension()
+    with pytest.raises(ValueError):
+        inst.fetch_resource("http://example/plugin.py")
+
+
+def test_fetch_resource_reads_local_path(tmp_path):
+    inst = make_extension()
+    target = tmp_path / "plugin.py"
+    target.write_bytes(b"# local plugin source")
+    assert inst.fetch_resource(str(target)) == b"# local plugin source"
+
+
+def test_fetch_resource_https_uses_urllib():
+    # An https URL is fetched via urllib.request.urlopen and the bytes returned.
+    inst = make_extension()
+    response = mock.Mock()
+    response.read.return_value = b"# remote plugin source"
+    with mock.patch("urllib.request.urlopen", return_value=response) as urlopen:
+        out = inst.fetch_resource("https://example/plugin.py")
+
+    assert out == b"# remote plugin source"
+    assert urlopen.call_args[0][0] == "https://example/plugin.py"
 
 
 def test_module_path_cache_suffix():
