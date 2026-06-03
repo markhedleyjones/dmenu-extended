@@ -1,4 +1,4 @@
-<img src="https://travis-ci.org/MarkHedleyJones/dmenu-extended.svg?branch=master" alt="build:passed">
+[![CI](https://github.com/markhedleyjones/dmenu-extended/actions/workflows/ci.yml/badge.svg)](https://github.com/markhedleyjones/dmenu-extended/actions/workflows/ci.yml)
 
 # dmenu-extended
 
