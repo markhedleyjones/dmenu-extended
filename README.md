@@ -70,7 +70,9 @@ Alternatively, omit `sudo` from the above command to install dmenu-extended only
 
 ### Method 3: Install via AUR
 
-An AUR package is available here: [dmenu-extended-git](https://aur.archlinux.org/packages/dmenu-extended-git/).
+AUR packages are available here:
+- [dmenu-extended](https://aur.archlinux.org/packages/dmenu-extended/) — latest stable release
+- [dmenu-extended-git](https://aur.archlinux.org/packages/dmenu-extended-git/) — latest git version
 
 ## Usage
 
