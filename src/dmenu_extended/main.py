@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import importlib
+import importlib.metadata
 import json
 import operator
 import os
@@ -9,8 +10,6 @@ import subprocess
 import sys
 import time
 import urllib.request
-
-import pkg_resources
 
 Help = """
 Dmenu Extended command line options
@@ -66,7 +65,7 @@ class Version:
 
 
 provided_package_versions = {
-    "dmenu-extended": Version(pkg_resources.get_distribution("dmenu-extended").version),
+    "dmenu-extended": Version(importlib.metadata.version("dmenu-extended")),
     "python": Version(".".join(map(str, sys.version_info[:3]))),
 }
 
