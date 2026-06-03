@@ -123,6 +123,7 @@ Functions of the items are as follows.
 - `"include_applications"` add items found under /usr/share/applications
 - `"alias_applications"` alias applications with their intended names
 - `"path_aliasFile"` path to a file containing aliases (e.g. ~/.bash_aliases)
+- `"plugin_repositories"` list of plugin sources (base URLs or local paths) to install plugins from; the official repository is included by default
 - `"abbreviate_homedir"` abbreviate $HOME as `~` for files & folders
 - `"frequently_used"` the number of your most frequently used commands to show at the top of the menu
 - `"alias_display_format"` how to format aliased commands (e.g. `"{name} ({command})"`)
